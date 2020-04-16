@@ -326,9 +326,9 @@ function generateEnum(
   for (const valueDesc of enumDesc.value) {
     const info = sourceInfo.lookup(Fields.enum.value, index++);
     maybeAddComment(info, text => (code = code.add(`/** ${valueDesc.name} - ${text} */\n`)));
-    code = code.add('%L: %L as const,\n', valueDesc.name, valueDesc.number.toString());
+    code = code.add('%L,\n', valueDesc.name);
   }
-  code = code.add('%L: %L as const,\n', UNRECOGNIZED_ENUM_NAME, UNRECOGNIZED_ENUM_VALUE.toString());
+  code = code.add('%L = %L,\n', UNRECOGNIZED_ENUM_NAME, UNRECOGNIZED_ENUM_VALUE.toString());
 
   if (options.outputJsonMethods) {
     code = code.addHashEntry(generateEnumFromJson(fullName, enumDesc));
@@ -339,7 +339,7 @@ function generateEnum(
   code = code.add('\n');
 
   const enumTypes = [...enumDesc.value.map(v => v.number.toString()), UNRECOGNIZED_ENUM_VALUE.toString()];
-  code = code.add('export type %L = %L;', fullName, enumTypes.join(' | '));
+  // code = code.add('export type %L = %L;', fullName, enumTypes.join(' | '));
   code = code.add('\n');
 
   return code;
