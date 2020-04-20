@@ -1,14 +1,14 @@
 {
-  "name": "ts-proto",
-  "version": "1.18.2",
+  "name": "@bdswiss/ts-proto",
+  "version": "2.0.0",
   "description": "",
   "main": "build/plugin.js",
-  "repository": "github:stephenh/ts-proto",
+  "repository": "github:bdswiss/ts-proto",
   "bin": {
     "protoc-gen-ts_proto": "./protoc-gen-ts_proto"
   },
   "scripts": {
-    "prepare": "yarn build && yarn test",
+    "prepare": "yarn build",
     "build": "yarn tsc",
     "setup": "./pbjs.sh && ./integration/pbjs.sh && ./integration/update-bins.sh && ./integration/codegen.sh",
     "test": "yarn jest -c jest.config.js"

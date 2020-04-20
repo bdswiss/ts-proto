@@ -160,8 +160,15 @@ export function packedType(type: FieldDescriptorProto.Type): number | undefined 
   }
 }
 
-export function defaultValue(type: FieldDescriptorProto.Type, options: Options): any {
-  switch (type) {
+export function defaultValue(field: FieldDescriptorProto, typeMap: TypeMap, options: Options): any {
+  const baseType = field.type === FieldDescriptorProto.Type.TYPE_MESSAGE ?
+    `Base${messageToTypeName(typeMap, field.typeName, false)}` :
+    basicTypeName(typeMap, field, options)
+  if (isRepeated(field)) {
+    return `<${baseType}[]>[]`
+  }
+
+  switch (field.type) {
     case FieldDescriptorProto.Type.TYPE_DOUBLE:
     case FieldDescriptorProto.Type.TYPE_FLOAT:
     case FieldDescriptorProto.Type.TYPE_INT32:
@@ -194,8 +201,9 @@ export function defaultValue(type: FieldDescriptorProto.Type, options: Options):
       return false;
     case FieldDescriptorProto.Type.TYPE_STRING:
       return '""';
-    case FieldDescriptorProto.Type.TYPE_BYTES:
     case FieldDescriptorProto.Type.TYPE_MESSAGE:
+      return `new ${baseType}()`
+    case FieldDescriptorProto.Type.TYPE_BYTES:
     default:
       return 'undefined';
   }

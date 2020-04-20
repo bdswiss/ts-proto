@@ -102,29 +102,25 @@ export function generateFile(typeMap: TypeMap, fileDesc: FileDescriptorProto, pa
       fileDesc,
       sourceInfo,
       (fullName, message) => {
-        file = file.addProperty(generateBaseInstance(fullName, message, options));
-        let staticMethods = CodeBlock.empty()
-          .add('export const %L = ', fullName)
-          .beginHash();
+        file = file
+          .addClass(generateBaseInstance(fullName, message, typeMap, options).addModifiers(Modifier.EXPORT));
+        let theClass = ClassSpec.create(fullName)
+          .superClass(`Base${fullName}`)
 
-        staticMethods = !options.outputEncodeMethods
-          ? staticMethods
-          : staticMethods
-              .addHashEntry(generateEncode(typeMap, fullName, message, options))
-              .addHashEntry(generateDecode(typeMap, fullName, message, options));
+        theClass = !options.outputEncodeMethods
+          ? theClass
+          : theClass
+              .addFunction(generateEncode(typeMap, fullName, message, options).addModifiers(Modifier.STATIC))
+              .addFunction(generateDecode(typeMap, fullName, message, options).addModifiers(Modifier.STATIC));
 
-        staticMethods = !options.outputJsonMethods
-          ? staticMethods
-          : staticMethods
-              .addHashEntry(generateFromJson(typeMap, fullName, message, options))
-              .addHashEntry(generateFromPartial(typeMap, fullName, message, options))
-              .addHashEntry(generateToJson(typeMap, fullName, message, options));
+        // staticMethods = !options.outputJsonMethods
+        //   ? staticMethods
+        //   : staticMethods
+        //       .addHashEntry(generateFromJson(typeMap, fullName, message, options))
+        //       .addHashEntry(generateFromPartial(typeMap, fullName, message, options))
+        //       .addHashEntry(generateToJson(typeMap, fullName, message, options));
 
-        staticMethods = staticMethods
-          .endHash()
-          .add(';')
-          .newLine();
-        file = file.addCode(staticMethods);
+        file = file.addClass(theClass.addModifiers(Modifier.EXPORT));
       },
       options
     );
@@ -320,7 +316,7 @@ function generateEnum(
 ): CodeBlock {
   let code = CodeBlock.empty();
   maybeAddComment(sourceInfo, text => (code = code.add(`/** %L */\n`, text)));
-  code = code.beginControlFlow('export const %L =', fullName);
+  code = code.beginControlFlow('export enum %L', fullName);
 
   let index = 0;
   for (const valueDesc of enumDesc.value) {
@@ -388,7 +384,7 @@ function generateInterfaceDeclaration(
   sourceInfo: SourceInfo,
   options: Options
 ) {
-  let message = InterfaceSpec.create(fullName).addModifiers(Modifier.EXPORT);
+  let message = InterfaceSpec.create(`I${fullName}`).addModifiers(Modifier.EXPORT);
   maybeAddComment(sourceInfo, text => (message = message.addJavadoc(text)));
 
   let index = 0;
@@ -406,19 +402,19 @@ function generateInterfaceDeclaration(
   return message;
 }
 
-function generateBaseInstance(fullName: string, messageDesc: DescriptorProto, options: Options) {
+function generateBaseInstance(fullName: string, messageDesc: DescriptorProto, typeMap: TypeMap, options: Options) {
   // Create a 'base' instance with default values for decode to use as a prototype
-  let baseMessage = PropertySpec.create('base' + fullName, TypeNames.anyType('object')).addModifiers(Modifier.CONST);
-  let initialValue = CodeBlock.empty().beginHash();
+  let baseMessage = ClassSpec.create(`Base${fullName}`).addInterface(`I${fullName}`)
   asSequence(messageDesc.field)
     .filterNot(isWithinOneOf)
     .forEach(field => {
-      initialValue = initialValue.addHashEntry(
-        maybeSnakeToCamel(field.name, options),
-        defaultValue(field.type, options)
-      );
+      baseMessage = baseMessage.addProperty(
+        PropertySpec.create(maybeSnakeToCamel(field.name, options), TypeNames.UNDEFINED)
+          .setImplicitlyTyped()
+          .initializer(defaultValue(field, typeMap, options).toString())
+      )
     });
-  return baseMessage.initializerBlock(initialValue.endHash());
+  return baseMessage
 }
 
 type MessageVisitor = (
@@ -498,7 +494,7 @@ function generateDecode(
   // add the initial end/message
   func = func
     .addStatement('let end = length === undefined ? reader.len : reader.pos + length')
-    .addStatement('const message = Object.create(base%L) as %L', fullName, fullName);
+    .addStatement('const message = new %L()', fullName);
 
   // initialize all lists
   messageDesc.field.filter(isRepeated).forEach(field => {
@@ -596,8 +592,8 @@ function generateEncode(
   options: Options
 ): FunctionSpec {
   // create the basic function declaration
-  let func = FunctionSpec.create('encode')
-    .addParameter(messageDesc.field.length > 0 ? 'message' : '_', fullName)
+  let func = FunctionSpec.create(`encode<T extends I${fullName}>`)
+    .addParameter(messageDesc.field.length > 0 ? 'message' : '_', 'T')
     .addParameter('writer', 'Writer@protobufjs/minimal', { defaultValueField: CodeBlock.of('Writer.create()') })
     .returns('Writer@protobufjs/minimal');
   // then add a case for each field
@@ -666,7 +662,7 @@ function generateEncode(
           'if (message.%L !== undefined && message.%L !== %L)',
           fieldName,
           fieldName,
-          defaultValue(field.type, options)
+          defaultValue(field, typeMap, options)
         )
         .addStatement('%L', writeSnippet(`message.${fieldName}`))
         .endControlFlow();
@@ -778,7 +774,7 @@ function generateFromJson(
       func = func.addStatement(
         `message.%L = %L`,
         fieldName,
-        isWithinOneOf(field) ? 'undefined' : defaultValue(field.type, options)
+        isWithinOneOf(field) ? 'undefined' : defaultValue(field, typeMap, options)
       );
     }
 
@@ -815,23 +811,23 @@ function generateToJson(
           from,
           basicTypeName(typeMap, field, options, true),
           from,
-          defaultValue(field.type, options)
+          defaultValue(field, typeMap, options)
         );
       } else if (isBytes(field)) {
         return CodeBlock.of(
           '%L !== undefined ? base64FromBytes(%L) : %L',
           from,
           from,
-          isWithinOneOf(field) ? 'undefined' : defaultValue(field.type, options)
+          isWithinOneOf(field) ? 'undefined' : defaultValue(field, typeMap, options)
         );
       } else if (isLong(field) && options.forceLong === LongOption.LONG) {
         return CodeBlock.of(
           '(%L || %L).toString()',
           from,
-          isWithinOneOf(field) ? 'undefined' : defaultValue(field.type, options)
+          isWithinOneOf(field) ? 'undefined' : defaultValue(field, typeMap, options)
         );
       } else {
-        return CodeBlock.of('%L || %L', from, isWithinOneOf(field) ? 'undefined' : defaultValue(field.type, options));
+        return CodeBlock.of('%L || %L', from, isWithinOneOf(field) ? 'undefined' : defaultValue(field, typeMap, options));
       }
     };
 
@@ -935,7 +931,7 @@ function generateFromPartial(
       func = func.addStatement(
         `message.%L = %L`,
         fieldName,
-        isWithinOneOf(field) ? 'undefined' : defaultValue(field.type, options)
+        isWithinOneOf(field) ? 'undefined' : defaultValue(field, typeMap, options)
       );
     }
 

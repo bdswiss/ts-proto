@@ -43,6 +43,6 @@ main()
 // syntax incompatible with ts-poet, we will hard-code the string and prepend to the
 // generator output.
 function prefixDisableLinter(spec: FileSpec): string {
-  return `/* eslint-disable */
+  return `/* tslint:disable */\n/* eslint-disable */
 ${spec}`;
 }
