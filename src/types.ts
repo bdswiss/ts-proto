@@ -160,12 +160,19 @@ export function packedType(type: FieldDescriptorProto.Type): number | undefined 
   }
 }
 
-export function defaultValue(field: FieldDescriptorProto, typeMap: TypeMap, options: Options): any {
+export function defaultValue(field: FieldDescriptorProto, typeMap: TypeMap, options: Options, messageDesc: DescriptorProto): any {
   const baseType = field.type === FieldDescriptorProto.Type.TYPE_MESSAGE ?
     `Base${messageToTypeName(typeMap, field.typeName, false)}` :
     basicTypeName(typeMap, field, options)
+
+  const mapType = detectMapType(typeMap, messageDesc, field, options)
+  if (mapType) {
+    const { keyType, valueType } = mapType;
+    return `<{[key: ${keyType}]: ${valueType}}>{}`;
+  }
+
   if (isRepeated(field)) {
-    return `<${baseType}[]>[]`
+    return `<${baseType}[]>[]`;
   }
 
   switch (field.type) {

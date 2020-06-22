@@ -102,10 +102,17 @@ export function generateFile(typeMap: TypeMap, fileDesc: FileDescriptorProto, pa
       fileDesc,
       sourceInfo,
       (fullName, message) => {
+        let cstr = FunctionSpec.createConstructor()
+          .addParameter('copy', `Partial<I${fullName}> | undefined`, { defaultValueField: CodeBlock.of('undefined') })
+          .addStatement('super()')
+          .addStatement('if (!copy) return')
+          .addStatement(`Object.assign<Base${fullName}, Partial<I${fullName}>>(this, copy)`)
+
         file = file
           .addClass(generateBaseInstance(fullName, message, typeMap, options).addModifiers(Modifier.EXPORT));
         let theClass = ClassSpec.create(fullName)
           .superClass(`Base${fullName}`)
+          .cstr(cstr)
 
         theClass = !options.outputEncodeMethods
           ? theClass
@@ -411,7 +418,7 @@ function generateBaseInstance(fullName: string, messageDesc: DescriptorProto, ty
       baseMessage = baseMessage.addProperty(
         PropertySpec.create(maybeSnakeToCamel(field.name, options), TypeNames.UNDEFINED)
           .setImplicitlyTyped()
-          .initializer(defaultValue(field, typeMap, options).toString())
+          .initializer(defaultValue(field, typeMap, options, messageDesc).toString())
       )
     });
   return baseMessage
@@ -662,7 +669,7 @@ function generateEncode(
           'if (message.%L !== undefined && message.%L !== %L)',
           fieldName,
           fieldName,
-          defaultValue(field, typeMap, options)
+          defaultValue(field, typeMap, options, messageDesc)
         )
         .addStatement('%L', writeSnippet(`message.${fieldName}`))
         .endControlFlow();
@@ -774,7 +781,7 @@ function generateFromJson(
       func = func.addStatement(
         `message.%L = %L`,
         fieldName,
-        isWithinOneOf(field) ? 'undefined' : defaultValue(field, typeMap, options)
+        isWithinOneOf(field) ? 'undefined' : defaultValue(field, typeMap, options, messageDesc)
       );
     }
 
@@ -811,23 +818,23 @@ function generateToJson(
           from,
           basicTypeName(typeMap, field, options, true),
           from,
-          defaultValue(field, typeMap, options)
+          defaultValue(field, typeMap, options, messageDesc)
         );
       } else if (isBytes(field)) {
         return CodeBlock.of(
           '%L !== undefined ? base64FromBytes(%L) : %L',
           from,
           from,
-          isWithinOneOf(field) ? 'undefined' : defaultValue(field, typeMap, options)
+          isWithinOneOf(field) ? 'undefined' : defaultValue(field, typeMap, options, messageDesc)
         );
       } else if (isLong(field) && options.forceLong === LongOption.LONG) {
         return CodeBlock.of(
           '(%L || %L).toString()',
           from,
-          isWithinOneOf(field) ? 'undefined' : defaultValue(field, typeMap, options)
+          isWithinOneOf(field) ? 'undefined' : defaultValue(field, typeMap, options, messageDesc)
         );
       } else {
-        return CodeBlock.of('%L || %L', from, isWithinOneOf(field) ? 'undefined' : defaultValue(field, typeMap, options));
+        return CodeBlock.of('%L || %L', from, isWithinOneOf(field) ? 'undefined' : defaultValue(field, typeMap, options, messageDesc));
       }
     };
 
@@ -931,7 +938,7 @@ function generateFromPartial(
       func = func.addStatement(
         `message.%L = %L`,
         fieldName,
-        isWithinOneOf(field) ? 'undefined' : defaultValue(field, typeMap, options)
+        isWithinOneOf(field) ? 'undefined' : defaultValue(field, typeMap, options, messageDesc)
       );
     }
 
