@@ -58,6 +58,8 @@ export type Options = {
   outputEncodeMethods: boolean;
   outputJsonMethods: boolean;
   outputClientImpl: boolean;
+  strictNulls: boolean;
+  propertiesAsInterfaces: boolean;
 };
 
 export function generateFile(typeMap: TypeMap, fileDesc: FileDescriptorProto, parameter: string): FileSpec {
@@ -395,10 +397,12 @@ function generateInterfaceDeclaration(
   maybeAddComment(sourceInfo, text => (message = message.addJavadoc(text)));
 
   let index = 0;
+  const optional = !options.strictNulls
   for (const fieldDesc of messageDesc.field) {
     let prop = PropertySpec.create(
       maybeSnakeToCamel(fieldDesc.name, options),
-      toTypeName(typeMap, messageDesc, fieldDesc, options)
+      toTypeName(typeMap, messageDesc, fieldDesc, options),
+      optional
     );
 
     const info = sourceInfo.lookup(Fields.message.field, index++);

@@ -43,6 +43,8 @@ export function optionsFromParameter(parameter: string): Options {
     outputEncodeMethods: true,
     outputJsonMethods: true,
     outputClientImpl: true,
+    strictNulls: false,
+    propertiesAsInterfaces: true,
   };
 
   if (parameter) {
@@ -66,6 +68,12 @@ export function optionsFromParameter(parameter: string): Options {
     }
     if (parameter.includes('outputClientImpl=false')) {
       options.outputClientImpl = false;
+    }
+    if (parameter.includes('strictNulls=true')) {
+      options.strictNulls = true;
+    }
+    if (parameter.includes('propertiesAsInterfaces=false')) {
+      options.propertiesAsInterfaces = false;
     }
   }
   return options;
