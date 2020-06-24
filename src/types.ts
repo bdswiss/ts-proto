@@ -56,7 +56,7 @@ export function basicLongWireType(type: FieldDescriptorProto.Type): number | und
 }
 
 /** Returns the type name without any repeated/required/etc. labels. */
-export function basicTypeName(typeMap: TypeMap, field: FieldDescriptorProto, options: Options, keepValueType: boolean = false): TypeName | string {
+export function basicTypeName(typeMap: TypeMap, field: FieldDescriptorProto, options: Options, keepValueType: boolean = false): TypeName {
   switch (field.type) {
     case FieldDescriptorProto.Type.TYPE_DOUBLE:
     case FieldDescriptorProto.Type.TYPE_FLOAT:
@@ -86,10 +86,7 @@ export function basicTypeName(typeMap: TypeMap, field: FieldDescriptorProto, opt
     case FieldDescriptorProto.Type.TYPE_BYTES:
       return TypeNames.anyType('Uint8Array');
     case FieldDescriptorProto.Type.TYPE_MESSAGE:
-      if (options.propertiesAsInterfaces)
-        return `I${messageToTypeName(typeMap, field.typeName, keepValueType)}`;
-      else
-        return messageToTypeName(typeMap, field.typeName, keepValueType);
+      return messageToTypeName(typeMap, field.typeName, keepValueType, options.propertiesAsInterfaces);
     case FieldDescriptorProto.Type.TYPE_ENUM:
       return messageToTypeName(typeMap, field.typeName, keepValueType);
     default:
@@ -297,7 +294,7 @@ export function isValueType(field: FieldDescriptorProto): boolean {
 }
 
 /** Maps `.some_proto_namespace.Message` to a TypeName. */
-export function messageToTypeName(typeMap: TypeMap, protoType: string, keepValueType: boolean = false): TypeName {
+export function messageToTypeName(typeMap: TypeMap, protoType: string, keepValueType: boolean = false, useInterface = false): TypeName {
   // Watch for the wrapper types `.google.protobuf.StringValue` and map to `string | undefined`
   if (!keepValueType && protoType in valueTypes) {
     return valueTypes[protoType];
@@ -307,7 +304,10 @@ export function messageToTypeName(typeMap: TypeMap, protoType: string, keepValue
     return mappedTypes[protoType];
   }
   const [module, type] = toModuleAndType(typeMap, protoType);
-  return TypeNames.importedType(`${type}@./${module}`);
+  if (useInterface)
+    return TypeNames.importedType(`I${type}@./${module}`);
+  else
+    return TypeNames.importedType(`${type}@./${module}`);
 }
 
 /** Breaks `.some_proto_namespace.Some.Message` into `['some_proto_namespace', 'Some_Message', Descriptor]. */
