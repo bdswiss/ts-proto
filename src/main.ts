@@ -401,7 +401,7 @@ function generateInterfaceDeclaration(
   for (const fieldDesc of messageDesc.field) {
     let prop = PropertySpec.create(
       maybeSnakeToCamel(fieldDesc.name, options),
-      toTypeName(typeMap, messageDesc, fieldDesc, options),
+      toTypeName(typeMap, messageDesc, fieldDesc, options, options.propertiesAsInterfaces),
       optional
     );
 

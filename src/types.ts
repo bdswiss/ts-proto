@@ -56,7 +56,7 @@ export function basicLongWireType(type: FieldDescriptorProto.Type): number | und
 }
 
 /** Returns the type name without any repeated/required/etc. labels. */
-export function basicTypeName(typeMap: TypeMap, field: FieldDescriptorProto, options: Options, keepValueType: boolean = false): TypeName {
+export function basicTypeName(typeMap: TypeMap, field: FieldDescriptorProto, options: Options, keepValueType: boolean = false, propertiesAsInterfaces: boolean = false): TypeName {
   switch (field.type) {
     case FieldDescriptorProto.Type.TYPE_DOUBLE:
     case FieldDescriptorProto.Type.TYPE_FLOAT:
@@ -86,7 +86,7 @@ export function basicTypeName(typeMap: TypeMap, field: FieldDescriptorProto, opt
     case FieldDescriptorProto.Type.TYPE_BYTES:
       return TypeNames.anyType('Uint8Array');
     case FieldDescriptorProto.Type.TYPE_MESSAGE:
-      return messageToTypeName(typeMap, field.typeName, keepValueType, options.propertiesAsInterfaces);
+      return messageToTypeName(typeMap, field.typeName, keepValueType, propertiesAsInterfaces);
     case FieldDescriptorProto.Type.TYPE_ENUM:
       return messageToTypeName(typeMap, field.typeName, keepValueType);
     default:
@@ -316,8 +316,8 @@ function toModuleAndType(typeMap: TypeMap, protoType: string): [string, string, 
 }
 
 /** Return the TypeName for any field (primitive/message/etc.) as exposed in the interface. */
-export function toTypeName(typeMap: TypeMap, messageDesc: DescriptorProto, field: FieldDescriptorProto, options: Options): TypeName {
-  let type = basicTypeName(typeMap, field, options, false);
+export function toTypeName(typeMap: TypeMap, messageDesc: DescriptorProto, field: FieldDescriptorProto, options: Options, propertiesAsInterfaces: boolean = false): TypeName {
+  let type = basicTypeName(typeMap, field, options, false, propertiesAsInterfaces);
   if (isRepeated(field)) {
     const mapType = detectMapType(typeMap, messageDesc, field, options);
     if (mapType) {
